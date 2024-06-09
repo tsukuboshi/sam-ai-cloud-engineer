@@ -1,5 +1,4 @@
 import csv
-import json
 import logging
 import os
 import re
@@ -22,16 +21,15 @@ def lambda_handler(event: Dict[Any, Any], context: Any) -> Dict[str, Any]:
         bucket_name = event["Records"][0]["s3"]["bucket"]["name"]
         object_key = event["Records"][0]["s3"]["object"]["key"]
 
-        tmp_yaml = f"/tmp/{object_key}"
-        template_download(bucket_name, object_key, tmp_yaml)
+        tmp_csv = f"/tmp/{object_key}.csv"
+        template_download(bucket_name, object_key, tmp_csv)
 
-        row_content = request_bedrock(tmp_yaml)
+        row_content = request_bedrock(tmp_csv)
         csv_content = format_csv(row_content)
 
         paramsheet_name = csv_validate(csv_content, object_key)
-        tmp_csv = f"/tmp/{object_key}.csv"
 
-        with open(tmp_csv, "w") as file:
+        with open(tmp_csv, "wt") as file:
             file.write(csv_content)
 
         paramsheet_upload(paramsheet_name, tmp_csv)
@@ -66,6 +64,7 @@ def request_bedrock(tmp_template_path: str) -> Any:
     """
 
     with open(prompt_path, "rt") as csv_file:
+
         complement_prompt = csv_file.read()
     logger.info("Complement Prompt: %s", complement_prompt)
 
@@ -136,14 +135,13 @@ def format_csv(row_content: str) -> str:
 
 
 # CSVバリデーション関数
-def csv_validate(file_path: str, object_key: str) -> str:
+def csv_validate(csv_content: str, object_key: str) -> str:
     try:
-        with open(file_path, "r") as file:
-            csv_reader = csv.reader(file)
-            for row in csv_reader:
-                pass
+        csv_reader = csv.reader(csv_content.splitlines())
+        for row in csv_reader:
+            pass
         logger.info("CSV Validation: Success")
-        csv_file_name = f"{object_key}.csv"
+        csv_file_name = f"{object_key}_normally.csv"
         return csv_file_name
     except csv.Error:
         logger.warning("CSV Validation Error")
