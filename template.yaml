@@ -1,0 +1,267 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Convert AWS Diagrams to CloudFormation Templates
+
+Parameters:
+  BedrockRegion:
+    Type: String
+    Default: us-west-2
+  BedrockModelId:
+    Type: String
+    Default: anthropic.claude-3-opus-20240229-v1:0
+    AllowedPattern: '^anthropic\.claude-3-.*'
+
+Resources:
+  InputDiagramBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub '${AWS::StackName}-input-diagram-bucket-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Function: !GetAtt GenerateTemplateFunction.Arn
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: suffix
+                    Value: png
+
+  OutputTemplateBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub '${AWS::StackName}-output-template-bucket-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Function: !GetAtt GenerateParamsheetFunction.Arn
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: suffix
+                    Value: normally.yaml
+
+  OutputParamsheetBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub '${AWS::StackName}-output-paramsheet-bucket-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+
+  GenerateTemplateFunctionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-role-generate-template-function'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: ''
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  GenerateTemplateFunctionPolicy:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      ManagedPolicyName: !Sub '${AWS::StackName}-policy-generate-template-function'
+      Roles:
+        - !Ref GenerateTemplateFunctionRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Resource: !Sub 'arn:aws:bedrock:${BedrockRegion}::foundation-model/${BedrockModelId}'
+            Action: bedrock:InvokeModel
+          - Effect: Allow
+            Resource:
+              - !GetAtt InputDiagramBucket.Arn
+              - !GetAtt OutputTemplateBucket.Arn
+            Action: s3:ListBucket
+          - Effect: Allow
+            Resource: '*'
+            Action:
+              - cloudformation:ListTypes
+              - cloudformation:ValidateTemplate
+          - Effect: Allow
+            Resource: !Sub
+              - '${InputDiagramBucketArn}/*'
+              -  InputDiagramBucketArn: !GetAtt InputDiagramBucket.Arn
+            Action: s3:GetObject
+          - Effect: Allow
+            Resource: !Sub
+              - '${OutputTemplateBucketArn}/*'
+              -  OutputTemplateBucketArn: !GetAtt OutputTemplateBucket.Arn
+            Action: s3:PutObject
+
+  GenerateTemplateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: function/generate-template
+      FunctionName: !Sub '${AWS::StackName}-generate-template-function'
+      Runtime: python3.12
+      Handler: index.lambda_handler
+      Role: !GetAtt GenerateTemplateFunctionRole.Arn
+      MemorySize: 512
+      EphemeralStorage:
+        Size: 512
+      Runtime: python3.12
+      EventInvokeConfig:
+        MaximumRetryAttempts: 0
+      Timeout: 900
+      Layers:
+        - !Ref FunctionLayer
+      LoggingConfig:
+        LogFormat: JSON
+        ApplicationLogLevel: INFO
+      Environment:
+        Variables:
+          BEDROCK_REGION: !Ref BedrockRegion
+          MODEL_ID: !Ref BedrockModelId
+          OUTPUT_BUCKET: !Ref OutputTemplateBucket
+
+  GenerateTemplateFunctionPermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !Ref GenerateTemplateFunction
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub "arn:aws:s3:::${AWS::StackName}-input-diagram-bucket-${AWS::AccountId}"
+
+  GenerateParamsheetFunctionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-role-generate-paramsheet-function'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: ''
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  GenerateParamsheetFunctionPolicy:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      ManagedPolicyName: !Sub '${AWS::StackName}-policy-generate-paramsheet-function'
+      Roles:
+        - !Ref GenerateParamsheetFunctionRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Resource: !Sub 'arn:aws:bedrock:${BedrockRegion}::foundation-model/${BedrockModelId}'
+            Action: bedrock:InvokeModel
+          - Effect: Allow
+            Resource:
+              - !GetAtt OutputTemplateBucket.Arn
+              - !GetAtt OutputParamsheetBucket.Arn
+            Action: s3:ListBucket
+          - Effect: Allow
+            Resource: !Sub
+              - '${OutputTemplateBucketArn}/*'
+              -  OutputTemplateBucketArn: !GetAtt OutputTemplateBucket.Arn
+            Action: s3:GetObject
+          - Effect: Allow
+            Resource: !Sub
+              - '${OutputParamsheetBucketArn}/*'
+              -  OutputParamsheetBucketArn: !GetAtt OutputParamsheetBucket.Arn
+            Action: s3:PutObject
+
+  GenerateParamsheetFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: function/generate-paramsheet
+      Runtime: python3.12
+      FunctionName: !Sub '${AWS::StackName}-generate-paramsheet-function'
+      Handler: index.lambda_handler
+      Role: !GetAtt GenerateParamsheetFunctionRole.Arn
+      MemorySize: 512
+      EphemeralStorage:
+        Size: 512
+      Runtime: python3.12
+      EventInvokeConfig:
+        MaximumRetryAttempts: 0
+      Timeout: 900
+      Layers:
+        - !Ref FunctionLayer
+      LoggingConfig:
+        LogFormat: JSON
+        ApplicationLogLevel: INFO
+      Environment:
+        Variables:
+          BEDROCK_REGION: !Ref BedrockRegion
+          MODEL_ID: !Ref BedrockModelId
+          OUTPUT_BUCKET: !Ref OutputParamsheetBucket
+          PROMPT_PATH: 'sample_paramsheet.csv'
+
+  GenerateParamsheetFunctionPermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !Ref GenerateParamsheetFunction
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub "arn:aws:s3:::${AWS::StackName}-output-template-bucket-${AWS::AccountId}"
+
+  FunctionLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub '${AWS::StackName}-layer'
+      ContentUri: layer/
+      CompatibleRuntimes:
+        - python3.12
+    Metadata:
+      BuildMethod: python3.12
+
+Outputs:
+  InputDiagramBucketName:
+    Value: !Ref InputDiagramBucket
+  GenerateTemplateFunctionName:
+    Value: !Ref GenerateTemplateFunction
+  OutputTemplateBucketName:
+    Value: !Ref OutputTemplateBucket
+  GenerateParamsheetFunctionName:
+    Value: !Ref GenerateParamsheetFunction
+  OutputParamsheetBucketName:
+    Value: !Ref OutputParamsheetBucket

@@ -1,0 +1,13 @@
+リソース名,コンポーネント名,プロパティ名,値,説明
+VPC,CIDR,VPC_CIDR,10.0.0.0/16,VPCのIPアドレス範囲
+Subnet,PublicSubnet1,CIDR,10.0.1.0/24,パブリックサブネット1のIPアドレス範囲
+Subnet,PublicSubnet2,CIDR,10.0.2.0/24,パブリックサブネット2のIPアドレス範囲
+Subnet,PrivateSubnet1,CIDR,10.0.10.0/24,プライベートサブネット1のIPアドレス範囲
+Subnet,PrivateSubnet2,CIDR,10.0.20.0/24,プライベートサブネット2のIPアドレス範囲
+EC2,Instance,InstanceType,t2.micro,EC2インスタンスのインスタンスタイプ
+EC2,Instance,KeyPairName,my-key-pair,EC2インスタンスに関連付けるキーペア名
+EC2,Instance,AMI_ID,ami-0c55b159cbfafe1f0,EC2インスタンスのAMI ID
+RDS,Instance,InstanceType,db.t2.micro,RDSインスタンスのインスタンスタイプ
+RDS,Instance,StorageSize,20,RDSインスタンスのストレージサイズ（GB）
+RDS,MasterUser,Username,admin,RDSインスタンスのマスターユーザー名
+RDS,MasterUser,Password,Password123,RDSインスタンスのマスターユーザーパスワード
