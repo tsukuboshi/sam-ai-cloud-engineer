@@ -101,7 +101,7 @@ def request_bedrock(tmp_template_path: str) -> Any:
     ]
 
     inference_config = {
-        "maxTokens": 4096,
+        "maxTokens": int(os.environ["MAX_TOKEN"]),
         "temperature": 0,
     }
 
@@ -130,8 +130,9 @@ def format_csv(row_content: str) -> str:
         logger.info("Paramsheet: %s", response_text)
         return response_text
     else:
-        logger.error("CSV Format Error: %s", row_content)
-        raise Exception("CSV Format Error")
+        return ""
+        # logger.error("CSV Format Error: %s", row_content)
+        # raise Exception("CSV Format Error")
 
 
 # CSVバリデーション関数

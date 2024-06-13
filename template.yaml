@@ -157,6 +157,7 @@ Resources:
           BEDROCK_REGION: !Ref BedrockRegion
           MODEL_ID: !Ref BedrockModelId
           OUTPUT_BUCKET: !Ref OutputTemplateBucket
+          MAX_TOKEN: 4096
 
   GenerateTemplateFunctionPermission:
     Type: 'AWS::Lambda::Permission'
@@ -234,6 +235,7 @@ Resources:
           BEDROCK_REGION: !Ref BedrockRegion
           MODEL_ID: !Ref BedrockModelId
           OUTPUT_BUCKET: !Ref OutputParamsheetBucket
+          MAX_TOKEN: 4096
           PROMPT_PATH: 'sample_paramsheet.csv'
 
   GenerateParamsheetFunctionPermission:
