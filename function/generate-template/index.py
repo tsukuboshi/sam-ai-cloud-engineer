@@ -76,6 +76,7 @@ def image_download(bucket_name: str, file_name: str, tmp_file_path: str) -> None
         raise e
 
 
+# システムプロンプト生成関数
 def create_system_prompt() -> str:
     max_token = int(os.environ["MAX_TOKEN"])
     eighty_percent_token = int(max_token / 10 * 8)
@@ -179,6 +180,7 @@ def review_yaml(
         raise e
 
 
+# YAML出力関数
 def output_yaml(
     model_id: str,
     messages: List[Dict[str, Any]],
@@ -241,6 +243,7 @@ def output_yaml(
     return yaml_content
 
 
+# Bedrockリクエスト関数
 def request_bedrock(
     model_id: str,
     messages: List[Dict[str, Any]],
