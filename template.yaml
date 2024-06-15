@@ -6,10 +6,15 @@ Parameters:
   BedrockRegion:
     Type: String
     Default: us-west-2
-  BedrockModelId:
+  GenerateTemplateModelId:
     Type: String
     Default: anthropic.claude-3-opus-20240229-v1:0
-    AllowedPattern: '^anthropic\.claude-3-.*'
+  ReviewTemplateModelId:
+    Type: String
+    Default: anthropic.claude-3-opus-20240229-v1:0
+  GenerateParamsheetModelId:
+    Type: String
+    Default: anthropic.claude-3-opus-20240229-v1:0
 
 Resources:
   InputDiagramBucket:
@@ -109,7 +114,7 @@ Resources:
         Version: 2012-10-17
         Statement:
           - Effect: Allow
-            Resource: !Sub 'arn:aws:bedrock:${BedrockRegion}::foundation-model/${BedrockModelId}'
+            Resource: !Sub 'arn:aws:bedrock:${BedrockRegion}::foundation-model/*'
             Action: bedrock:InvokeModel
           - Effect: Allow
             Resource:
@@ -155,10 +160,12 @@ Resources:
       Environment:
         Variables:
           BEDROCK_REGION: !Ref BedrockRegion
-          MODEL_ID: !Ref BedrockModelId
+          GENERATE_MODEL_ID: !Ref GenerateTemplateModelId
+          REVIEW_MODEL_ID: !Ref ReviewTemplateModelId
           OUTPUT_BUCKET: !Ref OutputTemplateBucket
           MAX_TOKEN: 4096
-          MAX_COUNT: 2
+          MAX_YAML_COUNT: 2
+          MAX_REVIEW_COUNT: 3
 
   GenerateTemplateFunctionPermission:
     Type: 'AWS::Lambda::Permission'
@@ -193,7 +200,7 @@ Resources:
         Version: 2012-10-17
         Statement:
           - Effect: Allow
-            Resource: !Sub 'arn:aws:bedrock:${BedrockRegion}::foundation-model/${BedrockModelId}'
+            Resource: !Sub 'arn:aws:bedrock:${BedrockRegion}::foundation-model/*'
             Action: bedrock:InvokeModel
           - Effect: Allow
             Resource:
@@ -234,7 +241,7 @@ Resources:
       Environment:
         Variables:
           BEDROCK_REGION: !Ref BedrockRegion
-          MODEL_ID: !Ref BedrockModelId
+          MODEL_ID: !Ref GenerateParamsheetModelId
           OUTPUT_BUCKET: !Ref OutputParamsheetBucket
           MAX_TOKEN: 4096
           PROMPT_PATH: 'sample_paramsheet.csv'
