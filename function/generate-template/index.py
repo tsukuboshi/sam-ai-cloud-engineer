@@ -11,7 +11,9 @@ logger = logging.getLogger()
 
 s3 = boto3.client("s3")
 bedrock_runtime = boto3.client(
-    service_name="bedrock-runtime", region_name=os.environ["BEDROCK_REGION"]
+    service_name="bedrock-runtime",
+    region_name=os.environ["BEDROCK_REGION"],
+    config=botocore.config.Config(read_timeout=120),
 )
 cfn = boto3.client("cloudformation")
 
@@ -83,8 +85,8 @@ def generate_yaml(tmp_image_path: str) -> Any:
     \n- 必ず回答で出力するCloudFormationテンプレート(yaml形式)の先頭は"```yaml"、末尾は"```"とする。
     \n- 必要に応じて補足を付与したい場合は、回答で出力するCloudFormationテンプレート内に#を付けてコメントとして記載する。
     \n- もし回答が{ninety_percent_token}トークンを超えたら、{max_token}トークンに達するまでに一旦回答を分割し、ユーザーが「続き」と入力したら続きの回答を作成する。
-    \n- 回答で出力するCloudFormationテンプレートには、以下のリソースタイプ以外のリソースタイプは使用しない。
-    \n\n<リソースタイプ>
+    \n- 以下の<ResourceTypeList>に存在しないResourceTypeは、回答で出力するCloudFormationテンプレートのResourceType(AWS::service-name::data-type-name)として絶対に使用してはいけない。
+    \n\n<ResourceTypeList>
     \n{type_list}
     """
 
