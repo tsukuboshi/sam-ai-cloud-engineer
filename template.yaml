@@ -158,6 +158,7 @@ Resources:
           MODEL_ID: !Ref BedrockModelId
           OUTPUT_BUCKET: !Ref OutputTemplateBucket
           MAX_TOKEN: 4096
+          MAX_COUNT: 2
 
   GenerateTemplateFunctionPermission:
     Type: 'AWS::Lambda::Permission'

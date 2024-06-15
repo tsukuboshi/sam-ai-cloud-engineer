@@ -60,17 +60,7 @@ def generate_yaml(tmp_image_path: str) -> Any:
     logger.info("Model ID: %s", model_id)
 
     max_token = int(os.environ["MAX_TOKEN"])
-    logger.info("Max Token: %s", max_token)
-
     ninety_percent_token = int(max_token / 10 * 9)
-    logger.info("90 Percent Token: %s", ninety_percent_token)
-
-    system_prompt = f"""
-    \n必ず回答にはyamlファイルの内容を含めてください。
-    \n必ずyamlファイルの先頭は"```yaml"、末尾は"```"としてください。
-    \n必要に応じて補足を付与したい場合は、yamlファイル内に#を付けてコメントとして記載してください。
-    \nもし回答が{ninety_percent_token}トークンを超えたら、{max_token}トークンに達するまでに一旦回答を分割し、私が「続き」と入力したら続きの回答を作成してください。
-    """
 
     next_token = None
     type_summaries = []
@@ -87,22 +77,29 @@ def generate_yaml(tmp_image_path: str) -> Any:
         for summary in type_summaries
         if summary["TypeName"].startswith("AWS::")
     ]
-    logger.info("Resource Type: %s", type_list)
 
-    first_content_text = f"""
-    \n\nHuman:
-    \n<質問>
-    \n入力されたAWS構成図の詳細情報に基づき、その構成をデプロイするためのCloudFormationテンプレート(YAML形式)を作成してください。
-    \nテンプレートには、以下の条件全てを満たすようにしてください:
-    \n- 構成図に記載されている全リソースの設定を必ず含める
-    \n- 構成図に基づきリソース間の依存関係や参照を適切に定義する
-    \n- 構成図に記載されていないリソースは最低限必要なものを除いて追加しない
-    \n- 提示されたリソースタイプ以外のリソースタイプを使用しない
+    system_prompt = f"""
+    \n回答は以下の条件全てを満たすようにしてください:
+    \n- 必ず回答で出力するCloudFormationテンプレート(yaml形式)の先頭は"```yaml"、末尾は"```"とする。
+    \n- 必要に応じて補足を付与したい場合は、回答で出力するCloudFormationテンプレート内に#を付けてコメントとして記載する。
+    \n- もし回答が{ninety_percent_token}トークンを超えたら、{max_token}トークンに達するまでに一旦回答を分割し、ユーザーが「続き」と入力したら続きの回答を作成する。
+    \n- 回答で出力するCloudFormationテンプレートには、以下のリソースタイプ以外のリソースタイプは使用しない。
     \n\n<リソースタイプ>
     \n{type_list}
     """
 
-    next_content_text = "続き"
+    logger.info("System Prompt: %s", system_prompt)
+
+    first_content_text = f"""
+    \n\nHuman:
+    \n入力されたAWS構成図の詳細情報に基づき、その構成をデプロイするためのCloudFormationテンプレート(YAML形式)を作成してください。
+    \nテンプレートは、以下の条件全てを満たすようにしてください:
+    \n- 構成図に記載されている全リソースの設定を必ず含める
+    \n- 構成図に基づきリソース間の依存関係や参照を適切に定義する
+    \n- 構成図に記載されていないリソースは最低限必要なものを除いて追加しない
+    """
+
+    logger.info("First Message: %s", first_content_text)
 
     messages: List[Dict[str, Any]] = []
 
@@ -120,15 +117,18 @@ def generate_yaml(tmp_image_path: str) -> Any:
 
         logger.info(f"First YAML: %s", first_yaml_content)
 
+        first_yaml_length = len(first_yaml_content)
+        eighty_percent_first_yaml_length = int(first_yaml_length * 0.8)
+
         messages.append(first_res_message)
 
         yaml_content = first_yaml_content
 
-        yaml_content = first_yaml_content
+        max_count = int(os.environ["MAX_COUNT"])
 
-        max_repeat_count = 3
+        next_content_text = "続き"
 
-        for i in range(max_repeat_count):
+        for count in range(max_count):
             next_res_message = request_bedrock(
                 model_id, messages, next_content_text, system_prompt
             )
@@ -136,25 +136,23 @@ def generate_yaml(tmp_image_path: str) -> Any:
             next_row_content = next_res_message["content"][0]["text"]
             next_yaml_content = format_yaml(next_row_content)
 
-            if len(next_yaml_content) > len(first_yaml_content) * 0.9:
-                i += 1
-                logger.info(f"Next YAML {i}: %s", next_yaml_content)
-                yaml_content += "\n" + next_yaml_content
+            logger.info(f"Next YAML {count}: %s", next_yaml_content)
+            yaml_content += "\n" + next_yaml_content
+
+            next_yaml_length = len(next_yaml_content)
+
+            if next_yaml_length > eighty_percent_first_yaml_length:
+                logger.info(
+                    f"Next YAML Length {next_yaml_length} is over 80% of First YAML Length {eighty_percent_first_yaml_length}, continuing..."
+                )
                 messages.append(next_res_message)
             else:
+                logger.info(
+                    f"Next YAML Length {next_yaml_length} is under 80% of First YAML Length {eighty_percent_first_yaml_length}, breaking..."
+                )
                 break
 
-        # next_res_message = request_bedrock(
-        #     model_id, messages, next_content_text, system_prompt
-        # )
-
-        # next_row_content = next_res_message["content"][0]["text"]
-        # next_yaml_content = format_yaml(next_row_content)
-        # logger.info("Next YAML: %s", next_yaml_content)
-
-        # yaml_content = first_yaml_content + "\n" + next_yaml_content
-
-        logger.info("Last YAML: %s", yaml_content)
+        logger.info("Combined YAML: %s", yaml_content)
 
         return yaml_content
 
