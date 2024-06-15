@@ -165,7 +165,7 @@ Resources:
           OUTPUT_BUCKET: !Ref OutputTemplateBucket
           MAX_TOKEN: 4096
           MAX_YAML_COUNT: 2
-          MAX_REVIEW_COUNT: 3
+          MAX_REVIEW_COUNT: 5
 
   GenerateTemplateFunctionPermission:
     Type: 'AWS::Lambda::Permission'

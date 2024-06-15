@@ -14,7 +14,7 @@ capabilities = "CAPABILITY_NAMED_IAM"
 disable_rollback = false
 parameter_overrides = [
   "BedrockRegion=us-west-2",
-  "GenerateTemplateModelId=anthropic.claude-3-haiku-20240307-v1:0",
+  "GenerateTemplateModelId=anthropic.claude-3-opus-20240229-v1:0",
   "ReviewTemplateModelId=anthropic.claude-3-haiku-20240307-v1:0",
   "GenerateParamsheetModelId=anthropic.claude-3-haiku-20240307-v1:0"
 ]
