@@ -117,20 +117,44 @@ def generate_yaml(tmp_image_path: str) -> Any:
 
         first_row_content = first_res_message["content"][0]["text"]
         first_yaml_content = format_yaml(first_row_content)
-        logger.info("First YAML: %s", first_yaml_content)
+
+        logger.info(f"First YAML: %s", first_yaml_content)
 
         messages.append(first_res_message)
 
-        next_res_message = request_bedrock(
-            model_id, messages, next_content_text, system_prompt
-        )
+        yaml_content = first_yaml_content
 
-        next_row_content = next_res_message["content"][0]["text"]
-        next_yaml_content = format_yaml(next_row_content)
-        logger.info("Next YAML: %s", next_yaml_content)
+        yaml_content = first_yaml_content
 
-        yaml_content = first_yaml_content + "\n" + next_yaml_content
-        logger.info("YAML: %s", yaml_content)
+        max_repeat_count = 3
+
+        for i in range(max_repeat_count):
+            next_res_message = request_bedrock(
+                model_id, messages, next_content_text, system_prompt
+            )
+
+            next_row_content = next_res_message["content"][0]["text"]
+            next_yaml_content = format_yaml(next_row_content)
+
+            if len(next_yaml_content) > len(first_yaml_content) * 0.9:
+                i += 1
+                logger.info(f"Next YAML {i}: %s", next_yaml_content)
+                yaml_content += "\n" + next_yaml_content
+                messages.append(next_res_message)
+            else:
+                break
+
+        # next_res_message = request_bedrock(
+        #     model_id, messages, next_content_text, system_prompt
+        # )
+
+        # next_row_content = next_res_message["content"][0]["text"]
+        # next_yaml_content = format_yaml(next_row_content)
+        # logger.info("Next YAML: %s", next_yaml_content)
+
+        # yaml_content = first_yaml_content + "\n" + next_yaml_content
+
+        logger.info("Last YAML: %s", yaml_content)
 
         return yaml_content
 
