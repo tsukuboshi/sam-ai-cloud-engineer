@@ -38,22 +38,25 @@ def lambda_handler(event: Dict[Any, Any], context: Any) -> Dict[str, Any]:
         cfn_res = ""
         max_review_count = int(os.environ["MAX_REVIEW_COUNT"])
 
+        target_yaml = raw_yaml
+
         for review_count in range(max_review_count):
             logger.info(f"Validation Status: {status}")
             if status == "normally":
                 break
             else:
-                modified_yaml = review_yaml(
-                    system_prompt, tmp_image_path, raw_yaml, cfn_res
+                reviewed_yaml = review_yaml(
+                    system_prompt, tmp_image_path, target_yaml, cfn_res
                 )
-                status, cfn_res = cfn_validate(modified_yaml)
+                status, cfn_res = cfn_validate(reviewed_yaml)
+                target_yaml = reviewed_yaml
 
         template_name = f"{input_diagram_name}_{current_time}_{status}.yaml"
 
         tmp_yaml = f"/tmp/{template_name}"
 
         with open(tmp_yaml, "w") as file:
-            file.write(modified_yaml)
+            file.write(target_yaml)
 
         template_upload(template_name, tmp_yaml)
 
@@ -75,13 +78,13 @@ def image_download(bucket_name: str, file_name: str, tmp_file_path: str) -> None
 
 def create_system_prompt() -> str:
     max_token = int(os.environ["MAX_TOKEN"])
-    ninety_percent_token = int(max_token / 10 * 9)
+    eighty_percent_token = int(max_token / 10 * 8)
 
     system_prompt = f"""
     \n回答は以下の条件全てを満たすようにしてください:
     \n- 必ず回答で出力するCloudFormationテンプレート(yaml形式)の先頭は"```yaml"、末尾は"```"とする。
     \n- 必要に応じて補足を付与したい場合は、回答で出力するCloudFormationテンプレート内に#を付けてコメントとして記載する。
-    \n- もし回答が{ninety_percent_token}トークンを超えたら、{max_token}トークンに達するまでに一旦回答を分割し、ユーザーが「続き」と入力したら続きの回答を作成する。
+    \n- もし回答が{eighty_percent_token}トークンを超えたら、{max_token}トークンに達するまでに一旦回答を分割し、ユーザーが「続き」と入力したら続きの回答を作成する。
     """
 
     logger.info("System Prompt: %s", system_prompt)
@@ -149,10 +152,10 @@ def review_yaml(
 
     first_review_text = f"""
     \n\nHuman:
-    \n入力されたAWS構成図、提示されたCloudFormationテンプレートを確認し、構成図に基づいてテンプレートが適切に作成されているか確認してください。
-    \nもしテンプレートに問題がない場合は、提示されたテンプレートをそのまま全て出力してください。
-    \nもしテンプレートに問題がある場合は、問題がある箇所のみ修正した上で修正後のテンプレートを全て出力してください。
-    \nもしエラーメッセージが何かしら追加で提示されている場合は、エラーを解消できるように修正したテンプレートを出力してください。
+    \n入力されたAWS構成図、提示されたCloudFormationテンプレートを確認し、構成図に記載されている全てのリソースがテンプレートによって適切に作成できるかどうか確認してください。
+    \nもしテンプレートに問題または不足がない場合は、提示されたテンプレートをそのまま全て出力してください。
+    \nもしテンプレートに問題または不足がある場合は、該当の箇所のみ修正及び追記した上で、更新したテンプレートを全て出力してください。
+    \nもしエラーメッセージが何かしら追加で提示されている場合は、エラーを解消できるように更新したテンプレートを全て出力してください。
     \n\n<CloudFormationテンプレート>
     \n{yaml_content}
     \n\n<エラーメッセージ>
