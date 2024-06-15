@@ -131,8 +131,6 @@ def format_csv(row_content: str) -> str:
         return response_text
     else:
         return ""
-        # logger.error("CSV Format Error: %s", row_content)
-        # raise Exception("CSV Format Error")
 
 
 # CSVバリデーション関数

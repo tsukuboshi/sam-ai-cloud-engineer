@@ -28,12 +28,9 @@ def lambda_handler(event: Dict[Any, Any], context: Any) -> Dict[str, Any]:
 
         image_download(input_bucket_name, input_diagram_name, tmp_image_path)
 
-        # row_content = request_bedrock(tmp_image_path)
-        # yaml_content = format_yaml(row_content)
+        yaml_content = generate_yaml(tmp_image_path)
 
-        yaml_content = request_bedrock(tmp_image_path)
-
-        template_name = cfn_validate(yaml_content, current_time)
+        template_name = cfn_validate(yaml_content, input_diagram_name, current_time)
         tmp_yaml = f"/tmp/{template_name}"
 
         with open(tmp_yaml, "w") as file:
@@ -57,8 +54,8 @@ def image_download(bucket_name: str, file_name: str, tmp_file_path: str) -> None
         raise e
 
 
-# Bedrockへのメッセージリクエスト関数
-def request_bedrock(tmp_image_path: str) -> Any:
+# YAMLテンプレート内容生成関数
+def generate_yaml(tmp_image_path: str) -> Any:
     model_id = os.environ["MODEL_ID"]
     logger.info("Model ID: %s", model_id)
 
@@ -109,7 +106,7 @@ def request_bedrock(tmp_image_path: str) -> Any:
     messages: List[Dict[str, Any]] = []
 
     try:
-        first_res_message = request_message(
+        first_res_message = request_bedrock(
             model_id,
             messages,
             first_content_text,
@@ -123,7 +120,7 @@ def request_bedrock(tmp_image_path: str) -> Any:
 
         messages.append(first_res_message)
 
-        next_res_message = request_message(
+        next_res_message = request_bedrock(
             model_id, messages, next_content_text, system_prompt
         )
 
@@ -136,90 +133,12 @@ def request_bedrock(tmp_image_path: str) -> Any:
 
         return yaml_content
 
-    # with open(tmp_image_path, "rb") as image_file:
-    #     content_image = image_file.read()
-
-    # messages: List[Dict[str, Any]] = []
-
-    # first_req_mes = {
-    #     "role": "user",
-    #     "content": [
-    #         {
-    #             "image": {
-    #                 "format": "png",
-    #                 "source": {
-    #                     "bytes": content_image,
-    #                 },
-    #             },
-    #         },
-    #         {"text": content_text},
-    #     ],
-    # }
-    # messages.append(first_req_mes)
-
-    # system = [
-    #     {
-    #         "text": system_prompt,
-    #     }
-    # ]
-
-    # inference_config = {
-    #     "maxTokens": 4096,
-    #     "temperature": 0,
-    # }
-
-    # try:
-    # first_res = bedrock_runtime.converse(
-    #     modelId=model_id,
-    #     messages=messages,
-    #     system=system,
-    #     inferenceConfig=inference_config,
-    # )
-
-    # first_res_mes = first_res["output"]["message"]
-    # first_row_content = first_res_mes["content"][0]["text"]
-
-    # messages.append(first_res_mes)
-
-    # logger.info("First Content: %s", first_row_content)
-
-    # first_yaml_content = format_yaml(first_row_content)
-    # logger.info("First YAML: %s", first_yaml_content)
-
-    # next_req_message = {
-    #     "role": "user",
-    #     "content": [
-    #         {"text": "続き"},
-    #     ],
-    # }
-
-    # messages.append(next_req_message)
-
-    # next_res = bedrock_runtime.converse(
-    #     modelId=model_id,
-    #     messages=messages,
-    #     inferenceConfig=inference_config,
-    # )
-
-    # next_res_mes = next_res["output"]["message"]
-    # next_row_content = next_res_mes["content"][0]["text"]
-
-    # logger.info("Next Content: %s", next_row_content)
-
-    # next_yaml_content = format_yaml(next_row_content)
-    # logger.info("Next YAML: %s", next_yaml_content)
-
-    # yaml_content = first_yaml_content + next_yaml_content
-    # logger.info("YAML: %s", yaml_content)
-
-    # return yaml_content
-
     except botocore.exceptions.ClientError as e:
         logger.error("Bedrock Request Error: %s", e)
         raise e
 
 
-def request_message(
+def request_bedrock(
     model_id: str,
     messages: List[Dict[str, Any]],
     content_text: str,
@@ -288,22 +207,20 @@ def format_yaml(row_content: str) -> str:
         return response_text
     else:
         return ""
-        # logger.error("YAML Format Error: %s", row_content)
-        # raise Exception("YAML Format Error")
 
 
 # CloudFormationバリデーション関数
-def cfn_validate(yaml_content: str, current_time: str) -> str:
+def cfn_validate(yaml_content: str, input_diagram_name: str, current_time: str) -> str:
     try:
         cfn_res = cfn.validate_template(
             TemplateBody=yaml_content,
         )
         logger.info("CloudFormation: %s", cfn_res)
-        file_name = f"{current_time}_normally.yaml"
+        file_name = f"{input_diagram_name}_{current_time}_normally.yaml"
         return file_name
     except botocore.exceptions.ClientError as e:
         logger.warning("CloudFormation Validation Error: %s", e)
-        file_name = f"{current_time}_error.yaml"
+        file_name = f"{input_diagram_name}_{current_time}_error.yaml"
         return file_name
 
 
