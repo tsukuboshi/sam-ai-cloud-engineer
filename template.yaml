@@ -64,7 +64,7 @@ Resources:
               S3Key:
                 Rules:
                   - Name: suffix
-                    Value: normally.yaml
+                    Value: yaml
 
   OutputParamsheetBucket:
     Type: 'AWS::S3::Bucket'
