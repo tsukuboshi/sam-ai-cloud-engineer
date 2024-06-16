@@ -2,7 +2,7 @@
 
 ## 概要
 
-AWS構成図の画像(png形式)Inputバケットにアップロードすると、OutputバケットにCloudFormationテンプレート(yaml形式)とパラメータシート(csv形式)が生成されるサーバレスアプリケーションをSAMで構築します。  
+事前に作成したAWS構成図をアップロードすると、OutputバケットにCloudFormationテンプレートとパラメータシートが生成されるサーバレスアプリケーションをSAMで構築します。  
 
 ## 要件
 
@@ -40,3 +40,10 @@ sam deploy
 |GenerateTemplateModelId|String|テンプレート生成用のモデルID|anthropic.claude-3-opus-20240229-v1:0|
 |ReviewTemplateModelId|String|テンプレートレビュー用のモデルID|anthropic.claude-3-opus-20240229-v1:0|
 |GenerateParamsheetModelId|String|パラメータシート生成用のモデルID|anthropic.claude-3-opus-20240229-v1:0|
+
+## 使い方
+
+1. Inputバケットに構成図の画像(png形式)をアップロードする
+2. 一定時間待機する
+3. 各々のOutputバケットにCloudFormationテンプレート(yaml形式)とパラメータシート(csv形式)が生成される
+4. 生成されたCloudFormationテンプレートについては、CloudFormationスタック作成時にオブジェクトURIを指定する事でそのままデプロイ可能
