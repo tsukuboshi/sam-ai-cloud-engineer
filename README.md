@@ -37,7 +37,6 @@ sam deploy
 |名前|種類|説明|デフォルト値|
 |---|---|---|---|
 |BedrockRegion|String|Bedrockを呼び出すリージョン|us-west-2|
-|BedrockModelId|String|BedrockのモデルID|anthropic.claude-3-opus-20240229-v1:0|
 |GenerateTemplateModelId|String|テンプレート生成用のモデルID|anthropic.claude-3-opus-20240229-v1:0|
 |ReviewTemplateModelId|String|テンプレートレビュー用のモデルID|anthropic.claude-3-opus-20240229-v1:0|
 |GenerateParamsheetModelId|String|パラメータシート生成用のモデルID|anthropic.claude-3-opus-20240229-v1:0|
